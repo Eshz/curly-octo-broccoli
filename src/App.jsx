@@ -6,57 +6,57 @@ const navMeta = ["Birthday Celebration", "Sunshine Group"];
 const stylePatterns = [
   {
     cols: "col-span-4 md:col-span-2",
-    rows: "row-span-2",
-    minHeight: "min-h-[220px] md:min-h-0",
+    rows: "md:row-span-2",
+    aspect: "aspect-[16/9] md:aspect-auto",
     filter: "grayscale contrast-125 brightness-90",
     label: "grayscale"
   },
   {
     cols: "col-span-2 md:col-span-1",
-    rows: "row-span-2",
-    minHeight: "min-h-[220px] md:min-h-0",
+    rows: "md:row-span-2",
+    aspect: "aspect-[3/4] md:aspect-auto",
     filter: "",
     label: ""
   },
   {
     cols: "col-span-2 md:col-span-1",
-    rows: "row-span-2",
-    minHeight: "min-h-[220px] md:min-h-0",
+    rows: "md:row-span-2",
+    aspect: "aspect-square md:aspect-auto",
     filter: "sepia-[0.5] contrast-90",
     label: "sepia"
   },
   {
     cols: "col-span-2 md:col-span-1",
-    rows: "row-span-2",
-    minHeight: "min-h-[220px] md:min-h-0",
+    rows: "md:row-span-2",
+    aspect: "aspect-[3/4] md:aspect-auto",
     filter: "sepia-[0.2] saturate-150 hue-rotate-[-10deg]",
     label: "warm"
   },
   {
     cols: "col-span-2 md:col-span-1",
-    rows: "row-span-2",
-    minHeight: "min-h-[220px] md:min-h-0",
+    rows: "md:row-span-2",
+    aspect: "aspect-[3/4] md:aspect-auto",
     filter: "",
     label: ""
   },
   {
     cols: "col-span-2 md:col-span-1",
-    rows: "row-span-3",
-    minHeight: "min-h-[320px] md:min-h-0",
+    rows: "md:row-span-3",
+    aspect: "aspect-[3/5] md:aspect-auto",
     filter: "grayscale contrast-125 brightness-90",
     label: "grayscale"
   },
   {
     cols: "col-span-2 md:col-span-1",
-    rows: "row-span-2",
-    minHeight: "min-h-[220px] md:min-h-0",
+    rows: "md:row-span-2",
+    aspect: "aspect-[3/4] md:aspect-auto",
     filter: "hue-rotate-[10deg] saturate-110 brightness-105",
     label: "cool"
   },
   {
     cols: "col-span-2 md:col-span-1",
-    rows: "row-span-2",
-    minHeight: "min-h-[220px] md:min-h-0",
+    rows: "md:row-span-2",
+    aspect: "aspect-[3/4] md:aspect-auto",
     filter: "saturate-150 contrast-110",
     label: "vibrant"
   }
@@ -156,7 +156,7 @@ function Lightbox({ photos, currentIndex, onClose, onNavigate }) {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
     >
-      <div className="flex items-center justify-between p-6 md:p-10">
+      <div className="flex items-center justify-between px-5 py-5 md:p-10">
         <div className="flex items-center space-x-4">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em]">
             {currentIndex + 1} / {photos.length}
@@ -170,7 +170,7 @@ function Lightbox({ photos, currentIndex, onClose, onNavigate }) {
           <CloseIcon />
         </button>
       </div>
-      <div className="relative flex flex-1 items-center justify-center overflow-hidden p-4 md:p-12">
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden px-5 py-4 md:p-12">
         <motion.img
           key={photo.url}
           initial={{ opacity: 0, scale: 0.98 }}
@@ -190,20 +190,20 @@ function Lightbox({ photos, currentIndex, onClose, onNavigate }) {
           referrerPolicy="no-referrer"
         />
         <button
-          className="group absolute left-4 top-1/2 rounded-full p-4 transition-all hover:bg-white/10 md:left-10"
+          className="group absolute left-1 top-1/2 rounded-full p-3 transition-all hover:bg-white/10 md:left-10 md:p-4"
           onClick={() => onNavigate(-1)}
         >
           <ChevronLeftIcon />
         </button>
         <button
-          className="group absolute right-4 top-1/2 rounded-full p-4 transition-all hover:bg-white/10 md:right-10"
+          className="group absolute right-1 top-1/2 rounded-full p-3 transition-all hover:bg-white/10 md:right-10 md:p-4"
           onClick={() => onNavigate(1)}
         >
           <ChevronRightIcon />
         </button>
       </div>
       <motion.div
-        className="p-12 text-center"
+        className="px-5 py-8 text-center md:p-12"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 12 }}
@@ -264,7 +264,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-parchment text-charcoal selection:bg-charcoal selection:text-white">
-      <nav className="pointer-events-none fixed left-0 top-0 z-50 flex w-full items-center justify-between px-6 py-8 md:px-12">
+      <nav className="pointer-events-none fixed left-0 top-0 z-50 flex w-full items-center justify-between px-5 py-6 md:px-12 md:py-8">
         <div className="pointer-events-auto">
           <h1 className="font-serif text-2xl font-light tracking-tight md:text-3xl">Naomi&apos;s 2nd</h1>
         </div>
@@ -280,7 +280,7 @@ export default function App() {
         </div>
       </nav>
 
-      <header className="relative flex h-[90vh] flex-col items-center justify-center overflow-hidden px-6 text-center">
+      <header className="relative flex h-[90vh] flex-col items-center justify-center overflow-hidden px-5 text-center md:px-12">
         <motion.div
           className="z-10"
           initial={{ opacity: 0, y: 18 }}
@@ -322,16 +322,16 @@ export default function App() {
         )}
 
         {status === "ready" && (
-          <div className="grid grid-cols-6 grid-flow-dense auto-rows-[56px] gap-2 md:grid-cols-3 md:auto-rows-[92px] md:gap-6 lg:grid-cols-4 xl:grid-cols-6">
+          <div className="grid auto-rows-min grid-cols-6 grid-flow-dense gap-2 md:grid-cols-3 md:auto-rows-[92px] md:gap-6 lg:grid-cols-4 xl:grid-cols-6">
             {photos.map((photo, index) => (
               <motion.button
                 key={`${photo.url}-${index}`}
                 type="button"
                 className={[
-                  "group relative cursor-pointer overflow-hidden bg-[#e5e2dd] text-left",
+                  "group relative block w-full cursor-pointer overflow-hidden bg-[#e5e2dd] text-left align-top",
                   photo.style.cols,
                   photo.style.rows,
-                  photo.style.minHeight
+                  photo.style.aspect
                 ].join(" ")}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -367,7 +367,7 @@ export default function App() {
         )}
       </main>
 
-      <footer className="border-t border-charcoal/10 px-6 py-24 text-center md:px-12">
+      <footer className="border-t border-charcoal/10 px-5 py-16 text-center md:px-12 md:py-24">
         <div className="mx-auto max-w-2xl">
           <p className="mb-10 font-serif text-3xl italic leading-relaxed">
             &quot;Two years of sunshine, laughter, and love.&quot;
