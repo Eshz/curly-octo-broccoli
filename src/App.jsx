@@ -226,6 +226,12 @@ export default function App() {
     async function loadAlbum() {
       try {
         const response = await fetch("/api/album");
+        const contentType = response.headers.get("content-type") || "";
+
+        if (!contentType.includes("application/json")) {
+          throw new Error("The album service returned an unexpected response.");
+        }
+
         const data = await response.json();
 
         if (!response.ok) {
