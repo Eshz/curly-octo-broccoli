@@ -1,62 +1,102 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
-const navMeta = ["Birthday Celebration", "Sunshine Group"];
+const CONTACT_EMAIL = "hello@sunshinegroup.photos";
+const SAVE_ALBUM_EMAIL = "eshchar.zych@gmail.com";
+
+const ALBUMS = [
+  {
+    slug: "naomi-is-two",
+    title: "Naomi is Two",
+    subtitle: "A Special Celebration",
+    label: "Sunshine Group",
+    eventDate: "March 2026",
+    quote: "Two years of sunshine, laughter, and love.",
+    location: "Sunshine Group"
+  },
+  {
+    slug: "spring-picnic",
+    title: "Spring Picnic",
+    subtitle: "Long Tables and Golden Light",
+    label: "Park Gathering",
+    eventDate: "Editorial Album",
+    quote: "Afternoons made for grazing, games, and soft spring light.",
+    location: "The Park"
+  },
+  {
+    slug: "sunshine-atelier",
+    title: "Sunshine Atelier",
+    subtitle: "Family Moments in the Park",
+    label: "Outdoor Session",
+    eventDate: "Editorial Album",
+    quote: "Candid frames, playful details, and a beautifully paced day outdoors.",
+    location: "The Park"
+  },
+  {
+    slug: "garden-stories",
+    title: "Garden Stories",
+    subtitle: "Celebration Under the Trees",
+    label: "Weekend Event",
+    eventDate: "Editorial Album",
+    quote: "An album built around easy conversation, children at play, and sunlight through leaves.",
+    location: "The Park"
+  }
+];
 
 const stylePatterns = [
   {
-    cols: "col-span-4 md:col-span-2",
+    cols: "col-span-3 md:col-span-2",
     rows: "md:row-span-2",
-    aspect: "aspect-[16/9] md:aspect-auto",
+    aspect: "aspect-[4/5] md:aspect-auto",
     filter: "grayscale contrast-125 brightness-90",
     label: "grayscale"
   },
   {
-    cols: "col-span-2 md:col-span-1",
+    cols: "col-span-3 md:col-span-1",
     rows: "md:row-span-2",
-    aspect: "aspect-[3/4] md:aspect-auto",
+    aspect: "aspect-[4/5] md:aspect-auto",
     filter: "",
     label: ""
   },
   {
-    cols: "col-span-2 md:col-span-1",
+    cols: "col-span-3 md:col-span-1",
     rows: "md:row-span-2",
-    aspect: "aspect-square md:aspect-auto",
+    aspect: "aspect-[4/5] md:aspect-auto",
     filter: "sepia-[0.5] contrast-90",
     label: "sepia"
   },
   {
-    cols: "col-span-2 md:col-span-1",
+    cols: "col-span-3 md:col-span-1",
     rows: "md:row-span-2",
-    aspect: "aspect-[3/4] md:aspect-auto",
+    aspect: "aspect-[4/5] md:aspect-auto",
     filter: "sepia-[0.2] saturate-150 hue-rotate-[-10deg]",
     label: "warm"
   },
   {
-    cols: "col-span-2 md:col-span-1",
+    cols: "col-span-3 md:col-span-1",
     rows: "md:row-span-2",
-    aspect: "aspect-[3/4] md:aspect-auto",
+    aspect: "aspect-[4/5] md:aspect-auto",
     filter: "",
     label: ""
   },
   {
-    cols: "col-span-2 md:col-span-1",
+    cols: "col-span-3 md:col-span-1",
     rows: "md:row-span-3",
-    aspect: "aspect-[3/5] md:aspect-auto",
+    aspect: "aspect-[4/5] md:aspect-auto",
     filter: "grayscale contrast-125 brightness-90",
     label: "grayscale"
   },
   {
-    cols: "col-span-2 md:col-span-1",
+    cols: "col-span-3 md:col-span-1",
     rows: "md:row-span-2",
-    aspect: "aspect-[3/4] md:aspect-auto",
+    aspect: "aspect-[4/5] md:aspect-auto",
     filter: "hue-rotate-[10deg] saturate-110 brightness-105",
     label: "cool"
   },
   {
-    cols: "col-span-2 md:col-span-1",
+    cols: "col-span-3 md:col-span-1",
     rows: "md:row-span-2",
-    aspect: "aspect-[3/4] md:aspect-auto",
+    aspect: "aspect-[4/5] md:aspect-auto",
     filter: "saturate-150 contrast-110",
     label: "vibrant"
   }
@@ -127,11 +167,247 @@ function ChevronRightIcon() {
   );
 }
 
+function ArrowRightIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+      <path d="M5 12h14" />
+      <path d="m12 5 7 7-7 7" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
 function assignPhotoStyle(index) {
   return stylePatterns[index % stylePatterns.length];
 }
 
-function Lightbox({ photos, currentIndex, onClose, onNavigate }) {
+function slugify(value) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function getRoute() {
+  const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
+
+  if (pathname === "/contact") return { page: "contact" };
+  if (pathname === "/demo") return { page: "demo" };
+  if (pathname.startsWith("/album/")) return { page: "album", slug: pathname.replace("/album/", "") };
+
+  return { page: "home" };
+}
+
+function navigate(path) {
+  window.history.pushState({}, "", path);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+async function fetchAlbumPayload({ slug, url }) {
+  const params = new URLSearchParams();
+
+  if (slug) params.set("slug", slug);
+  if (url) params.set("url", url);
+
+  const response = await fetch(`/api/album?${params.toString()}`);
+  const contentType = response.headers.get("content-type") || "";
+
+  if (!contentType.includes("application/json")) {
+    throw new Error("The album service returned an unexpected response.");
+  }
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.details || data.error || "Failed to load album");
+  }
+
+  if (!data.album || !Array.isArray(data.photos)) {
+    throw new Error("The album response was incomplete.");
+  }
+
+  return data;
+}
+
+function buildAlbumData(album, photos) {
+  return {
+    album,
+    photos: photos.map((url, index) => ({
+      url,
+      alt: `${album.title} - ${index + 1}`,
+      style: assignPhotoStyle(index)
+    }))
+  };
+}
+
+function buildCustomAlbumFromPayload(data, url, sequence) {
+  const fallbackTitle = data.album.title || `Custom Album ${sequence}`;
+  const slugBase = slugify(fallbackTitle) || `custom-album-${sequence}`;
+  const slug = `${slugBase}-${Date.now()}`;
+  const album = {
+    ...data.album,
+    slug,
+    title: fallbackTitle,
+    subtitle: data.album.subtitle || "Generated from Google Photos",
+    label: data.album.label || "Added by Link",
+    eventDate: data.album.eventDate || "Temporary Preview",
+    quote: data.album.quote || "Generated instantly from a Google Photos album link.",
+    location: data.album.location || "Google Photos",
+    sourceUrl: url
+  };
+
+  return buildAlbumData(album, data.photos);
+}
+
+function getSaveAlbumMailto(album) {
+  const subject = encodeURIComponent(`Save my Google Photos album - ${album.title}`);
+  const body = encodeURIComponent(
+    [
+      "Hi,",
+      "",
+      "I'd like to save this Google Photos album as a permanent Park Lens album.",
+      "",
+      `Album title: ${album.title}`,
+      `Google Photos link: ${album.sourceUrl || ""}`,
+      "",
+      "Please let me know the next steps."
+    ].join("\n")
+  );
+
+  return `mailto:${SAVE_ALBUM_EMAIL}?subject=${subject}&body=${body}`;
+}
+
+function Header({ compact = false, onAddAlbum, showDemoLink = true }) {
+  return (
+    <nav className="pointer-events-none fixed left-0 top-0 z-50 flex w-full items-center justify-between px-5 py-6 md:px-12 md:py-8">
+      <button
+        type="button"
+        className="pointer-events-auto font-serif text-2xl font-light tracking-tight md:text-3xl"
+        onClick={() => navigate("/")}
+      >
+        Park <span className="italic">Lens</span>
+      </button>
+      <div className="pointer-events-auto flex items-center gap-4 md:gap-8">
+        {!compact && (
+          <div className="hidden items-center space-x-2 opacity-40 md:flex">
+            <CameraIcon />
+            <span className="text-[10px] font-semibold uppercase tracking-[0.2em]">Digital Albums</span>
+          </div>
+        )}
+        {showDemoLink && (
+          <button
+            type="button"
+            className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-60 transition hover:opacity-100"
+            onClick={() => navigate("/demo")}
+          >
+            Demo
+          </button>
+        )}
+        {onAddAlbum && (
+          <button
+            type="button"
+            className="flex items-center gap-2 rounded-full border border-charcoal/15 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] opacity-80 transition hover:opacity-100"
+            onClick={onAddAlbum}
+          >
+            <PlusIcon />
+            Add Album
+          </button>
+        )}
+        <button
+          type="button"
+          className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-100 transition hover:opacity-100"
+          onClick={() => navigate("/")}
+        >
+          Portfolio
+        </button>
+        <button
+          type="button"
+          className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-60 transition hover:opacity-100"
+          onClick={() => navigate("/contact")}
+        >
+          Contact
+        </button>
+      </div>
+    </nav>
+  );
+}
+
+function AddAlbumModal({ open, onClose, onSubmit, title, description, submitLabel, error, busy }) {
+  const [value, setValue] = useState("");
+
+  useEffect(() => {
+    if (!open) setValue("");
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 z-[120] flex items-center justify-center bg-charcoal/30 px-5 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+      >
+        <motion.div
+          className="w-full max-w-xl rounded-[2rem] border border-charcoal/10 bg-parchment p-6 shadow-luxe md:p-8"
+          initial={{ opacity: 0, y: 24, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 24, scale: 0.98 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.3em] opacity-40">Google Photos Link</p>
+              <h2 className="mt-3 font-serif text-4xl">{title}</h2>
+              <p className="mt-4 max-w-lg text-sm leading-relaxed text-charcoal/70">{description}</p>
+            </div>
+            <button type="button" className="p-2 transition-opacity hover:opacity-50" onClick={onClose}>
+              <CloseIcon />
+            </button>
+          </div>
+          <label className="mt-8 block">
+            <span className="text-[10px] uppercase tracking-[0.25em] opacity-50">Album Link</span>
+            <input
+              className="mt-3 w-full rounded-2xl border border-charcoal/10 bg-white/60 px-4 py-4 outline-none transition focus:border-charcoal/30"
+              placeholder="https://photos.app.goo.gl/..."
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+            />
+          </label>
+          {error && <p className="mt-4 text-sm text-red-700">{error}</p>}
+          <div className="mt-8 flex flex-col gap-3 md:flex-row md:justify-end">
+            <button
+              type="button"
+              className="rounded-full border border-charcoal/15 px-6 py-3 text-[11px] uppercase tracking-[0.28em] transition hover:bg-white/60"
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="rounded-full bg-charcoal px-6 py-3 text-[11px] uppercase tracking-[0.28em] text-parchment transition hover:bg-charcoal/90 disabled:opacity-50"
+              disabled={busy || !value.trim()}
+              onClick={() => onSubmit(value.trim())}
+            >
+              {busy ? "Preparing..." : submitLabel}
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+function Lightbox({ album, photos, currentIndex, onClose, onNavigate }) {
   const [touchStart, setTouchStart] = useState(null);
   const photo = photos[currentIndex];
 
@@ -209,102 +485,157 @@ function Lightbox({ photos, currentIndex, onClose, onNavigate }) {
         exit={{ opacity: 0, y: 12 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
       >
-        <p className="font-serif text-xl italic opacity-80">Naomi&apos;s 2nd Birthday, Sunshine Group</p>
+        <p className="font-serif text-xl italic opacity-80">
+          {album.title}, {album.location}
+        </p>
         <p className="mt-2 text-[9px] uppercase tracking-[0.3em] opacity-40">Professional Curation</p>
       </motion.div>
     </motion.div>
   );
 }
 
-export default function App() {
-  const [photos, setPhotos] = useState([]);
-  const [status, setStatus] = useState("loading");
-  const [error, setError] = useState("");
-  const [activeIndex, setActiveIndex] = useState(null);
-
-  useEffect(() => {
-    async function loadAlbum() {
-      try {
-        const response = await fetch("/api/album");
-        const contentType = response.headers.get("content-type") || "";
-
-        if (!contentType.includes("application/json")) {
-          throw new Error("The album service returned an unexpected response.");
-        }
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.details || data.error || "Failed to load album");
-        }
-
-        setPhotos(
-          data.photos.map((url, index) => ({
-            url,
-            alt: `Naomi is Two - ${index + 1}`,
-            style: assignPhotoStyle(index)
-          }))
-        );
-        setStatus("ready");
-      } catch (requestError) {
-        setError(requestError instanceof Error ? requestError.message : "Unable to load album");
-        setStatus("error");
-      }
-    }
-
-    loadAlbum();
-  }, []);
-
-  function moveLightbox(direction) {
-    setActiveIndex((current) => {
-      if (current === null || photos.length === 0) return current;
-      return (current + direction + photos.length) % photos.length;
-    });
-  }
-
+function HomePage({ albums, albumPreviews, onAddAlbum, onSelectAlbum }) {
   return (
-    <div className="min-h-screen bg-parchment text-charcoal selection:bg-charcoal selection:text-white">
-      <nav className="pointer-events-none fixed left-0 top-0 z-50 flex w-full items-center justify-between px-5 py-6 md:px-12 md:py-8">
-        <div className="pointer-events-auto">
-          <h1 className="font-serif text-2xl font-light tracking-tight md:text-3xl">Naomi&apos;s 2nd</h1>
-        </div>
-        <div className="pointer-events-auto hidden items-center space-x-8 md:flex">
-          <div className="flex items-center space-x-2 opacity-40">
-            <CameraIcon />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.2em]">Sunshine Group</span>
-          </div>
-          <div className="h-px w-12 bg-charcoal opacity-20" />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-60">
-            {navMeta[0]}
-          </span>
-        </div>
-      </nav>
+    <>
+      <Header onAddAlbum={onAddAlbum} />
+      <main className="min-h-screen bg-parchment px-5 pb-24 pt-28 text-charcoal md:px-12 md:pb-32 md:pt-32">
+        <section className="mx-auto max-w-6xl">
+          <header className="mb-20">
+            <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
+              <p className="mb-4 text-[11px] uppercase tracking-[0.4em] opacity-60">Portfolio</p>
+              <h1 className="font-serif text-5xl font-light md:text-7xl">
+                Selected <span className="italic">Works</span>
+              </h1>
+              <p className="mt-6 max-w-xl text-sm leading-relaxed text-charcoal/70 md:text-base">
+                Capturing the essence of moments in the park. From intimate birthday celebrations to
+                golden-hour gatherings, each album is curated as a story of light, people, and place.
+              </p>
+            </motion.div>
+          </header>
 
-      <header className="relative flex h-[90vh] flex-col items-center justify-center overflow-hidden px-5 text-center md:px-12">
+          <section className="grid grid-cols-1 gap-10 md:grid-cols-2 xl:grid-cols-3">
+            {albums.map((album, index) => {
+              const preview = albumPreviews[album.slug];
+              return (
+                <motion.button
+                  key={album.slug}
+                  type="button"
+                  className="group cursor-pointer text-left"
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.55, delay: index * 0.06 }}
+                  onClick={() => onSelectAlbum(album.slug)}
+                >
+                  <div className="relative mb-5 aspect-[4/5] overflow-hidden bg-[#e5e2dd]">
+                    {preview?.cover ? (
+                      <img
+                        src={preview.cover}
+                        alt={album.title}
+                        referrerPolicy="no-referrer"
+                        className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-[#e5e2dd]/50">
+                        <div className="h-12 w-12 animate-pulse rounded-full border border-charcoal/20" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black/0 transition-colors duration-500 group-hover:bg-black/10" />
+                    <div className="absolute bottom-6 right-6 translate-x-4 opacity-0 transition-all duration-500 group-hover:translate-x-0 group-hover:opacity-100">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-charcoal shadow-xl">
+                        <ArrowRightIcon />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-start justify-between gap-6">
+                    <div>
+                      <h2 className="font-serif text-[2rem] leading-none md:text-[2.3rem]">{album.title}</h2>
+                      <p className="mt-2 text-[10px] uppercase tracking-[0.28em] opacity-50">{album.label}</p>
+                    </div>
+                    <span className="pt-1 text-[10px] font-semibold uppercase tracking-[0.28em] opacity-40">
+                      {album.eventDate}
+                    </span>
+                  </div>
+                  <div className="mt-5 flex items-center justify-between text-[10px] uppercase tracking-[0.28em] text-charcoal/45">
+                    <span>{preview?.photoCount ? `${preview.photoCount} Frames` : "Curated Album"}</span>
+                    <span>{album.location}</span>
+                  </div>
+                  <p className="mt-5 max-w-xl text-sm leading-relaxed text-charcoal/70">{album.quote}</p>
+                </motion.button>
+              );
+            })}
+          </section>
+
+          <section className="border-t border-charcoal/10 py-24 md:py-32">
+            <div className="mx-auto max-w-3xl text-center">
+              <h2 className="font-serif text-4xl font-light md:text-5xl">
+                Want to capture your <span className="italic">own</span> story?
+              </h2>
+              <p className="mx-auto mt-8 max-w-2xl text-base leading-relaxed text-charcoal/70">
+                I photograph birthdays, family gatherings, and outdoor celebrations in the park, then
+                shape them into a polished digital album with an editorial feel.
+              </p>
+              <div className="mt-12 flex flex-col items-center justify-center gap-4 md:flex-row">
+                <button
+                  type="button"
+                  className="rounded-full bg-charcoal px-10 py-4 font-serif text-xl text-white transition hover:bg-charcoal/90"
+                  onClick={() => navigate("/contact")}
+                >
+                  Book a Session
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full border border-charcoal/15 px-8 py-4 text-[11px] uppercase tracking-[0.28em] transition hover:bg-white/60"
+                  onClick={() => navigate("/demo")}
+                >
+                  Try the Demo
+                </button>
+              </div>
+            </div>
+          </section>
+        </section>
+      </main>
+    </>
+  );
+}
+
+function AlbumPage({ album, photos, status, error, onOpen, footerCta }) {
+  return (
+    <>
+      <Header />
+      <header className="relative flex h-[85vh] flex-col items-center justify-center overflow-hidden px-5 text-center md:px-12">
         <motion.div
           className="z-10"
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
-          <p className="mb-6 text-[11px] uppercase tracking-[0.4em] opacity-60">A Special Celebration</p>
-          <h2 className="font-serif text-6xl font-light leading-tight md:text-8xl lg:text-9xl">
-            Naomi is <br /> <span className="italic md:pl-24">Two</span>
-          </h2>
+          <p className="mb-6 text-[11px] uppercase tracking-[0.4em] opacity-60">{album.subtitle}</p>
+          <h1 className="font-serif text-6xl font-light leading-tight md:text-8xl lg:text-9xl">
+            {album.title.split(" ").slice(0, -1).join(" ")}
+            <br />
+            <span className="italic">{album.title.split(" ").slice(-1)}</span>
+          </h1>
           <div className="mt-8 flex flex-col items-center justify-center space-y-4 md:flex-row md:space-x-12 md:space-y-0">
             <div className="flex items-center space-x-2 opacity-70">
               <CalendarIcon />
-              <span className="text-xs uppercase tracking-wider">March 2026</span>
+              <span className="text-xs uppercase tracking-wider">{album.eventDate}</span>
             </div>
             <div className="flex items-center space-x-2 opacity-70">
               <MapPinIcon />
-              <span className="text-xs uppercase tracking-wider">Sunshine Group</span>
+              <span className="text-xs uppercase tracking-wider">{album.location}</span>
             </div>
           </div>
+          {footerCta && (
+            <div className="mt-10">
+              <a
+                href={footerCta.href}
+                className="rounded-full bg-charcoal px-8 py-3 text-[11px] uppercase tracking-[0.28em] text-parchment transition hover:bg-charcoal/90"
+              >
+                {footerCta.label}
+              </a>
+            </div>
+          )}
         </motion.div>
-        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[120%] w-[120%] -translate-x-1/2 -translate-y-1/2 opacity-[0.03]">
-          <div className="h-full w-full rounded-full border border-charcoal" />
-        </div>
       </header>
 
       <main className="px-2 pb-24 md:px-12">
@@ -335,8 +666,8 @@ export default function App() {
                 ].join(" ")}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5, delay: Math.min(index * 0.015, 0.35) }}
-                onClick={() => setActiveIndex(index)}
+                transition={{ duration: 0.45, delay: Math.min(index * 0.012, 0.3) }}
+                onClick={() => onOpen(index)}
               >
                 <img
                   src={photo.url}
@@ -369,26 +700,393 @@ export default function App() {
 
       <footer className="border-t border-charcoal/10 px-5 py-16 text-center md:px-12 md:py-24">
         <div className="mx-auto max-w-2xl">
-          <p className="mb-10 font-serif text-3xl italic leading-relaxed">
-            &quot;Two years of sunshine, laughter, and love.&quot;
-          </p>
+          <p className="mb-10 font-serif text-3xl italic leading-relaxed">&quot;{album.quote}&quot;</p>
           <div className="mx-auto mb-10 h-px w-16 bg-charcoal opacity-20" />
           <p className="text-[10px] font-medium uppercase tracking-[0.3em] opacity-40">
-            Naomi&apos;s 2nd Birthday • Sunshine Group • 2026
+            {album.title} • {album.location}
           </p>
+          {footerCta && (
+            <div className="mt-10">
+              <a
+                href={footerCta.href}
+                className="rounded-full border border-charcoal/15 px-8 py-3 text-[11px] uppercase tracking-[0.28em] transition hover:bg-white/60"
+              >
+                {footerCta.label}
+              </a>
+            </div>
+          )}
         </div>
       </footer>
+    </>
+  );
+}
+
+function DemoPage({ demoAlbum, status, error, onOpen, onStart }) {
+  const footerCta = demoAlbum
+    ? {
+        label: "Save This Album",
+        href: getSaveAlbumMailto(demoAlbum.album)
+      }
+    : null;
+
+  if (!demoAlbum && status !== "loading") {
+    return (
+      <>
+        <Header compact showDemoLink={false} />
+        <main className="min-h-screen bg-parchment px-5 pb-24 pt-28 text-charcoal md:px-12 md:pt-32">
+          <section className="mx-auto flex min-h-[70vh] max-w-4xl items-center justify-center">
+            <motion.div
+              className="w-full rounded-[2.25rem] border border-charcoal/10 bg-white/50 p-8 text-center shadow-luxe md:p-14"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <p className="text-[11px] uppercase tracking-[0.4em] opacity-50">One-Time Demo</p>
+              <h1 className="mt-5 font-serif text-5xl font-light md:text-7xl">
+                Turn a Google Photos link
+                <br />
+                into an <span className="italic">album</span>
+              </h1>
+              <p className="mx-auto mt-8 max-w-2xl text-base leading-relaxed text-charcoal/70">
+                Paste a shared Google Photos album link and I&apos;ll generate a one-time editorial album
+                preview in this same experience. Refresh the page and it resets back to empty.
+              </p>
+              {error && <p className="mx-auto mt-6 max-w-xl text-sm text-red-700">{error}</p>}
+              <button
+                type="button"
+                className="mt-10 rounded-full bg-charcoal px-10 py-4 font-serif text-xl text-white transition hover:bg-charcoal/90"
+                onClick={onStart}
+              >
+                Add Google Photos Link
+              </button>
+            </motion.div>
+          </section>
+        </main>
+      </>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-parchment text-charcoal selection:bg-charcoal selection:text-white">
+      <AlbumPage
+        album={demoAlbum?.album || { title: "Demo Album", subtitle: "One-Time Preview", eventDate: "Temporary", location: "Google Photos", quote: "Generated from a Google Photos link." }}
+        photos={demoAlbum?.photos || []}
+        status={status}
+        error={error}
+        onOpen={onOpen}
+        footerCta={footerCta}
+      />
+    </div>
+  );
+}
+
+function ContactPage() {
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    eventType: "",
+    eventDate: "",
+    message: ""
+  });
+
+  const mailtoHref = useMemo(() => {
+    const subject = encodeURIComponent(`Photography Inquiry from ${form.name || "New Client"}`);
+    const body = encodeURIComponent(
+      [
+        `Name: ${form.name || ""}`,
+        `Email: ${form.email || ""}`,
+        `Event Type: ${form.eventType || ""}`,
+        `Preferred Date: ${form.eventDate || ""}`,
+        "",
+        form.message || "I would love to book a park event photography session and receive a digital album."
+      ].join("\n")
+    );
+
+    return `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`;
+  }, [form]);
+
+  return (
+    <>
+      <Header compact />
+      <main className="min-h-screen bg-parchment px-5 pb-16 pt-28 text-charcoal md:px-12 md:pb-24 md:pt-32">
+        <section className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="space-y-6">
+            <p className="text-[11px] uppercase tracking-[0.4em] opacity-60">Book an Event</p>
+            <h1 className="font-serif text-5xl font-light leading-none md:text-7xl">
+              Let&apos;s create
+              <br />
+              <span className="italic">your album</span>
+            </h1>
+            <p className="max-w-xl text-base leading-8 text-charcoal/70 md:text-lg">
+              If you&apos;re planning a birthday, picnic, family gathering, or any celebration in the
+              park, I can photograph the day and deliver it as a polished digital album.
+            </p>
+            <div className="rounded-[2rem] border border-charcoal/10 bg-white/40 p-6 shadow-luxe md:p-8">
+              <p className="text-[10px] uppercase tracking-[0.35em] opacity-50">What&apos;s Included</p>
+              <ul className="mt-5 space-y-3 text-sm leading-7 text-charcoal/75">
+                <li>Park event photography with candid and editorial coverage.</li>
+                <li>Curated online album with high-resolution images.</li>
+                <li>Visual direction that feels warm, elevated, and personal.</li>
+              </ul>
+            </div>
+          </div>
+
+          <form className="rounded-[2rem] border border-charcoal/10 bg-white/50 p-6 shadow-luxe md:p-8">
+            <div className="grid gap-5 md:grid-cols-2">
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.25em] opacity-50">Name</span>
+                <input
+                  className="mt-3 w-full rounded-2xl border border-charcoal/10 bg-parchment px-4 py-3 outline-none transition focus:border-charcoal/30"
+                  value={form.name}
+                  onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.25em] opacity-50">Email</span>
+                <input
+                  className="mt-3 w-full rounded-2xl border border-charcoal/10 bg-parchment px-4 py-3 outline-none transition focus:border-charcoal/30"
+                  type="email"
+                  value={form.email}
+                  onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.25em] opacity-50">Event Type</span>
+                <input
+                  className="mt-3 w-full rounded-2xl border border-charcoal/10 bg-parchment px-4 py-3 outline-none transition focus:border-charcoal/30"
+                  placeholder="Birthday, picnic, family day..."
+                  value={form.eventType}
+                  onChange={(event) => setForm((current) => ({ ...current, eventType: event.target.value }))}
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.25em] opacity-50">Preferred Date</span>
+                <input
+                  className="mt-3 w-full rounded-2xl border border-charcoal/10 bg-parchment px-4 py-3 outline-none transition focus:border-charcoal/30"
+                  value={form.eventDate}
+                  onChange={(event) => setForm((current) => ({ ...current, eventDate: event.target.value }))}
+                />
+              </label>
+            </div>
+            <label className="mt-5 block">
+              <span className="text-[10px] uppercase tracking-[0.25em] opacity-50">Tell me about the event</span>
+              <textarea
+                className="mt-3 min-h-[180px] w-full rounded-[1.5rem] border border-charcoal/10 bg-parchment px-4 py-4 outline-none transition focus:border-charcoal/30"
+                value={form.message}
+                onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
+              />
+            </label>
+            <div className="mt-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.3em] opacity-40">Direct Contact</p>
+                <p className="mt-2 font-serif text-2xl">{CONTACT_EMAIL}</p>
+              </div>
+              <a
+                href={mailtoHref}
+                className="rounded-full bg-charcoal px-6 py-3 text-center text-[11px] uppercase tracking-[0.28em] text-parchment transition hover:bg-charcoal/85"
+              >
+                Send Inquiry
+              </a>
+            </div>
+          </form>
+        </section>
+      </main>
+    </>
+  );
+}
+
+export default function App() {
+  const [route, setRoute] = useState(() => getRoute());
+  const [albumData, setAlbumData] = useState(null);
+  const [status, setStatus] = useState("idle");
+  const [error, setError] = useState("");
+  const [activeIndex, setActiveIndex] = useState(null);
+  const [albumPreviews, setAlbumPreviews] = useState({});
+  const [customAlbums, setCustomAlbums] = useState([]);
+  const [customAlbumMap, setCustomAlbumMap] = useState({});
+  const [customSequence, setCustomSequence] = useState(1);
+  const [demoAlbum, setDemoAlbum] = useState(null);
+  const [demoStatus, setDemoStatus] = useState("idle");
+  const [demoError, setDemoError] = useState("");
+  const [modalState, setModalState] = useState({ open: false, mode: "home", busy: false, error: "" });
+
+  const albums = useMemo(() => [...customAlbums, ...ALBUMS], [customAlbums]);
+
+  useEffect(() => {
+    function onPopState() {
+      setRoute(getRoute());
+      setActiveIndex(null);
+    }
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (route.page === "contact") {
+      setStatus("idle");
+      setError("");
+      return;
+    }
+
+    if (route.page === "home") {
+      const missing = ALBUMS.filter((album) => !albumPreviews[album.slug]);
+
+      if (missing.length === 0) return;
+
+      Promise.all(
+        missing.map(async (album) => {
+          try {
+            const data = await fetchAlbumPayload({ slug: album.slug });
+            return [album.slug, data.album];
+          } catch {
+            return null;
+          }
+        })
+      )
+        .then((entries) => {
+          const validEntries = entries.filter(Boolean);
+          if (validEntries.length === 0) return;
+
+          setAlbumPreviews((current) => ({
+            ...current,
+            ...Object.fromEntries(validEntries)
+          }));
+        })
+        .catch(() => {});
+
+      return;
+    }
+
+    if (route.page === "album") {
+      if (customAlbumMap[route.slug]) {
+        setAlbumData(customAlbumMap[route.slug]);
+        setStatus("ready");
+        setError("");
+        return;
+      }
+
+      async function loadAlbum() {
+        setStatus("loading");
+        setError("");
+
+        try {
+          const data = await fetchAlbumPayload({ slug: route.slug });
+          setAlbumData(buildAlbumData(data.album, data.photos));
+          setStatus("ready");
+        } catch (requestError) {
+          setError(requestError instanceof Error ? requestError.message : "Unable to load album");
+          setStatus("error");
+        }
+      }
+
+      loadAlbum();
+    }
+  }, [route, albumPreviews, customAlbumMap]);
+
+  async function handleAddAlbum(url, mode) {
+    setModalState((current) => ({ ...current, busy: true, error: "" }));
+
+    try {
+      const data = await fetchAlbumPayload({ url });
+      const nextSequence = customSequence;
+      const customAlbumData = buildCustomAlbumFromPayload(data, url, nextSequence);
+
+      if (mode === "demo") {
+        setDemoAlbum(customAlbumData);
+        setDemoStatus("ready");
+        setDemoError("");
+        navigate("/demo");
+      } else {
+        setCustomSequence((current) => current + 1);
+        setCustomAlbums((current) => [customAlbumData.album, ...current]);
+        setCustomAlbumMap((current) => ({ ...current, [customAlbumData.album.slug]: customAlbumData }));
+        setAlbumPreviews((current) => ({ ...current, [customAlbumData.album.slug]: customAlbumData.album }));
+        navigate(`/album/${customAlbumData.album.slug}`);
+      }
+
+      setModalState({ open: false, mode: "home", busy: false, error: "" });
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : "Unable to load album";
+      setModalState((current) => ({ ...current, busy: false, error: message }));
+
+      if (mode === "demo") {
+        setDemoStatus("idle");
+        setDemoError(message);
+      }
+    }
+  }
+
+  function openModal(mode) {
+    setModalState({ open: true, mode, busy: false, error: "" });
+  }
+
+  function moveLightbox(direction) {
+    const photos = route.page === "demo" ? demoAlbum?.photos : albumData?.photos;
+
+    setActiveIndex((current) => {
+      if (current === null || !photos?.length) return current;
+      return (current + direction + photos.length) % photos.length;
+    });
+  }
+
+  const album = albumData?.album || albums.find((entry) => entry.slug === route.slug) || ALBUMS[0];
+  const photos = albumData?.photos || [];
+  const lightboxAlbum = route.page === "demo" ? demoAlbum?.album : album;
+  const lightboxPhotos = route.page === "demo" ? demoAlbum?.photos || [] : photos;
+
+  return (
+    <>
+      {route.page === "contact" && <ContactPage />}
+      {route.page === "home" && (
+        <HomePage
+          albums={albums}
+          albumPreviews={albumPreviews}
+          onAddAlbum={() => openModal("home")}
+          onSelectAlbum={(slug) => navigate(`/album/${slug}`)}
+        />
+      )}
+      {route.page === "demo" && (
+        <DemoPage
+          demoAlbum={demoAlbum}
+          status={demoStatus}
+          error={demoError}
+          onOpen={setActiveIndex}
+          onStart={() => openModal("demo")}
+        />
+      )}
+      {route.page === "album" && (
+        <div className="min-h-screen bg-parchment text-charcoal selection:bg-charcoal selection:text-white">
+          <AlbumPage album={album} photos={photos} status={status} error={error} onOpen={setActiveIndex} />
+        </div>
+      )}
 
       <AnimatePresence>
-        {activeIndex !== null && (
+        {activeIndex !== null && lightboxAlbum && (
           <Lightbox
-            photos={photos}
+            album={lightboxAlbum}
+            photos={lightboxPhotos}
             currentIndex={activeIndex}
             onClose={() => setActiveIndex(null)}
             onNavigate={moveLightbox}
           />
         )}
       </AnimatePresence>
-    </div>
+
+      <AddAlbumModal
+        open={modalState.open}
+        onClose={() => setModalState({ open: false, mode: "home", busy: false, error: "" })}
+        onSubmit={(url) => handleAddAlbum(url, modalState.mode)}
+        title={modalState.mode === "demo" ? "Generate a Demo Album" : "Add a New Album"}
+        description={
+          modalState.mode === "demo"
+            ? "Paste a shared Google Photos link to generate a one-time album preview. Refreshing the page clears it."
+            : "Paste a shared Google Photos album link and it will appear in your portfolio for this session."
+        }
+        submitLabel={modalState.mode === "demo" ? "Generate Album" : "Add Album"}
+        error={modalState.error}
+        busy={modalState.busy}
+      />
+    </>
   );
 }
