@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
 const CONTACT_EMAIL = "hello@sunshinegroup.photos";
@@ -185,6 +185,90 @@ function PlusIcon() {
   );
 }
 
+function useInView(options = {}) {
+  const ref = useRef(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    if (isVisible) return;
+
+    const node = ref.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      {
+        rootMargin: "0px 0px -8% 0px",
+        threshold: 0.15,
+        ...options
+      }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [isVisible, options]);
+
+  return [ref, isVisible];
+}
+
+function ScrollReveal({ children, className = "", delay = 0 }) {
+  const [ref, isVisible] = useInView();
+
+  return (
+    <div
+      ref={ref}
+      className={[
+        "transition-all duration-700 ease-out",
+        isVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0",
+        className
+      ].join(" ")}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function RevealImage({ src, alt, wrapperClassName = "", className = "", referrerPolicy = "no-referrer" }) {
+  const [ref, isVisible] = useInView();
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    setLoaded(false);
+  }, [src]);
+
+  return (
+    <div ref={ref} className={["relative overflow-hidden bg-[#e5e2dd]", wrapperClassName].join(" ")}>
+      <div
+        className={[
+          "absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.42),rgba(229,226,221,0.88),rgba(255,255,255,0.42))] bg-[length:200%_100%] transition-opacity duration-500",
+          loaded ? "opacity-0" : "animate-pulse opacity-100"
+        ].join(" ")}
+      />
+      {isVisible && (
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          referrerPolicy={referrerPolicy}
+          onLoad={() => setLoaded(true)}
+          className={[
+            "h-full w-full object-cover transition-all duration-1000 ease-out",
+            loaded ? "scale-100 opacity-100" : "scale-[1.03] opacity-0",
+            className
+          ].join(" ")}
+        />
+      )}
+    </div>
+  );
+}
+
 function assignPhotoStyle(index) {
   return stylePatterns[index % stylePatterns.length];
 }
@@ -305,7 +389,7 @@ function Header({ compact = false, onAddAlbum, showDemoLink = true }) {
         {showDemoLink && (
           <button
             type="button"
-            className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-60 transition hover:opacity-100"
+            className="rounded-full border border-charcoal/10 bg-white/55 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] opacity-70 shadow-[0_10px_30px_rgba(26,26,26,0.06)] transition hover:-translate-y-0.5 hover:opacity-100"
             onClick={() => navigate("/demo")}
           >
             Demo
@@ -314,7 +398,7 @@ function Header({ compact = false, onAddAlbum, showDemoLink = true }) {
         {onAddAlbum && (
           <button
             type="button"
-            className="flex items-center gap-2 rounded-full border border-charcoal/15 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] opacity-80 transition hover:opacity-100"
+            className="flex items-center gap-2 rounded-full border border-charcoal/10 bg-charcoal px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-parchment shadow-[0_12px_36px_rgba(26,26,26,0.16)] transition hover:-translate-y-0.5 hover:bg-charcoal/92"
             onClick={onAddAlbum}
           >
             <PlusIcon />
@@ -323,14 +407,14 @@ function Header({ compact = false, onAddAlbum, showDemoLink = true }) {
         )}
         <button
           type="button"
-          className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-100 transition hover:opacity-100"
+          className="rounded-full px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] opacity-100 transition hover:opacity-100"
           onClick={() => navigate("/")}
         >
           Portfolio
         </button>
         <button
           type="button"
-          className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-60 transition hover:opacity-100"
+          className="rounded-full px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60 transition hover:opacity-100"
           onClick={() => navigate("/contact")}
         >
           Contact
@@ -387,14 +471,14 @@ function AddAlbumModal({ open, onClose, onSubmit, title, description, submitLabe
           <div className="mt-8 flex flex-col gap-3 md:flex-row md:justify-end">
             <button
               type="button"
-              className="rounded-full border border-charcoal/15 px-6 py-3 text-[11px] uppercase tracking-[0.28em] transition hover:bg-white/60"
+              className="rounded-full border border-charcoal/10 bg-white/60 px-6 py-3 text-[11px] uppercase tracking-[0.28em] shadow-[0_12px_32px_rgba(26,26,26,0.05)] transition hover:-translate-y-0.5 hover:bg-white/85"
               onClick={onClose}
             >
               Cancel
             </button>
             <button
               type="button"
-              className="rounded-full bg-charcoal px-6 py-3 text-[11px] uppercase tracking-[0.28em] text-parchment transition hover:bg-charcoal/90 disabled:opacity-50"
+              className="rounded-full bg-charcoal px-6 py-3 text-[11px] uppercase tracking-[0.28em] text-parchment shadow-[0_14px_38px_rgba(26,26,26,0.16)] transition hover:-translate-y-0.5 hover:bg-charcoal/92 disabled:opacity-50"
               disabled={busy || !value.trim()}
               onClick={() => onSubmit(value.trim())}
             >
@@ -500,7 +584,7 @@ function HomePage({ albums, albumPreviews, onAddAlbum, onSelectAlbum }) {
       <Header onAddAlbum={onAddAlbum} />
       <main className="min-h-screen bg-parchment px-5 pb-24 pt-28 text-charcoal md:px-12 md:pb-32 md:pt-32">
         <section className="mx-auto max-w-6xl">
-          <header className="mb-20">
+          <header className="mb-16 md:mb-20">
             <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
               <p className="mb-4 text-[11px] uppercase tracking-[0.4em] opacity-60">Portfolio</p>
               <h1 className="font-serif text-5xl font-light md:text-7xl">
@@ -513,54 +597,54 @@ function HomePage({ albums, albumPreviews, onAddAlbum, onSelectAlbum }) {
             </motion.div>
           </header>
 
-          <section className="grid grid-cols-1 gap-10 md:grid-cols-2 xl:grid-cols-3">
+          <section className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
             {albums.map((album, index) => {
               const preview = albumPreviews[album.slug];
               return (
-                <motion.button
-                  key={album.slug}
-                  type="button"
-                  className="group cursor-pointer text-left"
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.55, delay: index * 0.06 }}
-                  onClick={() => onSelectAlbum(album.slug)}
-                >
-                  <div className="relative mb-5 aspect-[4/5] overflow-hidden bg-[#e5e2dd]">
-                    {preview?.cover ? (
-                      <img
-                        src={preview.cover}
-                        alt={album.title}
-                        referrerPolicy="no-referrer"
-                        className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-[#e5e2dd]/50">
-                        <div className="h-12 w-12 animate-pulse rounded-full border border-charcoal/20" />
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-black/0 transition-colors duration-500 group-hover:bg-black/10" />
-                    <div className="absolute bottom-6 right-6 translate-x-4 opacity-0 transition-all duration-500 group-hover:translate-x-0 group-hover:opacity-100">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-charcoal shadow-xl">
-                        <ArrowRightIcon />
+                <ScrollReveal key={album.slug} delay={index * 60}>
+                  <button
+                    type="button"
+                    className="group h-full cursor-pointer rounded-[1.75rem] border border-charcoal/10 bg-white/45 p-3 text-left shadow-[0_22px_60px_rgba(26,26,26,0.06)] transition duration-500 hover:-translate-y-1 hover:shadow-[0_28px_70px_rgba(26,26,26,0.1)]"
+                    onClick={() => onSelectAlbum(album.slug)}
+                  >
+                    <div className="relative mb-3 aspect-[4/5] overflow-hidden rounded-[1.2rem]">
+                      {preview?.cover ? (
+                        <RevealImage
+                          src={preview.cover}
+                          alt={album.title}
+                          wrapperClassName="h-full w-full"
+                          className="group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-[#e5e2dd]/50">
+                          <div className="h-12 w-12 animate-pulse rounded-full border border-charcoal/20" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/0 transition-colors duration-500 group-hover:bg-black/8" />
+                      <div className="absolute bottom-4 right-4 translate-y-3 opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-white/85 text-charcoal shadow-xl backdrop-blur">
+                          <ArrowRightIcon />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-start justify-between gap-6">
-                    <div>
-                      <h2 className="font-serif text-[2rem] leading-none md:text-[2.3rem]">{album.title}</h2>
-                      <p className="mt-2 text-[10px] uppercase tracking-[0.28em] opacity-50">{album.label}</p>
+                    <div className="px-1 pb-1">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="mb-2 text-[9px] uppercase tracking-[0.32em] text-charcoal/45">{album.label}</p>
+                          <h2 className="font-serif text-[1.7rem] leading-[0.95] md:text-[1.95rem]">{album.title}</h2>
+                        </div>
+                        <span className="pt-1 text-[9px] font-semibold uppercase tracking-[0.24em] text-charcoal/40">
+                          {album.eventDate}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between text-[9px] uppercase tracking-[0.26em] text-charcoal/45">
+                        <span>{preview?.photoCount ? `${preview.photoCount} Frames` : "Curated Album"}</span>
+                        <span>{album.location}</span>
+                      </div>
+                      <p className="mt-3 text-sm leading-relaxed text-charcoal/68">{album.quote}</p>
                     </div>
-                    <span className="pt-1 text-[10px] font-semibold uppercase tracking-[0.28em] opacity-40">
-                      {album.eventDate}
-                    </span>
-                  </div>
-                  <div className="mt-5 flex items-center justify-between text-[10px] uppercase tracking-[0.28em] text-charcoal/45">
-                    <span>{preview?.photoCount ? `${preview.photoCount} Frames` : "Curated Album"}</span>
-                    <span>{album.location}</span>
-                  </div>
-                  <p className="mt-5 max-w-xl text-sm leading-relaxed text-charcoal/70">{album.quote}</p>
-                </motion.button>
+                  </button>
+                </ScrollReveal>
               );
             })}
           </section>
@@ -577,14 +661,14 @@ function HomePage({ albums, albumPreviews, onAddAlbum, onSelectAlbum }) {
               <div className="mt-12 flex flex-col items-center justify-center gap-4 md:flex-row">
                 <button
                   type="button"
-                  className="rounded-full bg-charcoal px-10 py-4 font-serif text-xl text-white transition hover:bg-charcoal/90"
+                  className="rounded-full bg-charcoal px-8 py-3 text-[11px] uppercase tracking-[0.28em] text-white shadow-[0_14px_38px_rgba(26,26,26,0.16)] transition hover:-translate-y-0.5 hover:bg-charcoal/92"
                   onClick={() => navigate("/contact")}
                 >
                   Book a Session
                 </button>
                 <button
                   type="button"
-                  className="rounded-full border border-charcoal/15 px-8 py-4 text-[11px] uppercase tracking-[0.28em] transition hover:bg-white/60"
+                  className="rounded-full border border-charcoal/10 bg-white/60 px-8 py-3 text-[11px] uppercase tracking-[0.28em] shadow-[0_12px_32px_rgba(26,26,26,0.05)] transition hover:-translate-y-0.5 hover:bg-white/85"
                   onClick={() => navigate("/demo")}
                 >
                   Try the Demo
@@ -629,7 +713,7 @@ function AlbumPage({ album, photos, status, error, onOpen, footerCta }) {
             <div className="mt-10">
               <a
                 href={footerCta.href}
-                className="rounded-full bg-charcoal px-8 py-3 text-[11px] uppercase tracking-[0.28em] text-parchment transition hover:bg-charcoal/90"
+                className="rounded-full bg-charcoal px-8 py-3 text-[11px] uppercase tracking-[0.28em] text-parchment shadow-[0_14px_38px_rgba(26,26,26,0.16)] transition hover:-translate-y-0.5 hover:bg-charcoal/92"
               >
                 {footerCta.label}
               </a>
@@ -653,46 +737,40 @@ function AlbumPage({ album, photos, status, error, onOpen, footerCta }) {
         )}
 
         {status === "ready" && (
-          <div className="grid auto-rows-min grid-cols-6 grid-flow-dense gap-2 md:grid-cols-3 md:auto-rows-[92px] md:gap-6 lg:grid-cols-4 xl:grid-cols-6">
+          <div className="grid auto-rows-min grid-cols-6 grid-flow-dense gap-3 md:grid-cols-3 md:auto-rows-[82px] md:gap-4 lg:grid-cols-4 lg:auto-rows-[90px] xl:grid-cols-6">
             {photos.map((photo, index) => (
-              <motion.button
+              <button
                 key={`${photo.url}-${index}`}
                 type="button"
                 className={[
-                  "group relative block w-full cursor-pointer overflow-hidden bg-[#e5e2dd] text-left align-top",
+                  "group relative block w-full cursor-pointer overflow-hidden rounded-[1.4rem] border border-charcoal/8 bg-[#e5e2dd] text-left align-top shadow-[0_18px_45px_rgba(26,26,26,0.05)] transition-transform duration-500 hover:-translate-y-1",
                   photo.style.cols,
                   photo.style.rows,
                   photo.style.aspect
                 ].join(" ")}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.45, delay: Math.min(index * 0.012, 0.3) }}
                 onClick={() => onOpen(index)}
               >
-                <img
+                <RevealImage
                   src={photo.url}
                   alt={photo.alt}
-                  referrerPolicy="no-referrer"
-                  className={[
-                    "h-full w-full object-cover transition-all duration-1000 ease-out group-hover:scale-110",
-                    photo.style.filter
-                  ].join(" ")}
+                  wrapperClassName="h-full w-full"
+                  className={["group-hover:scale-105", photo.style.filter].join(" ")}
                 />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors duration-500 group-hover:bg-black/20">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors duration-500 group-hover:bg-black/18">
                   <div className="translate-y-4 opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/50 text-white backdrop-blur-md">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/50 bg-white/12 text-white backdrop-blur-md">
                       <ExpandIcon />
                     </div>
                   </div>
                 </div>
                 {photo.style.label && (
-                  <div className="absolute left-4 top-4 opacity-0 transition-opacity duration-500 group-hover:opacity-40">
-                    <span className="rounded-full border border-white/30 px-2 py-1 text-[8px] uppercase tracking-widest text-white">
+                  <div className="absolute left-4 top-4 opacity-0 transition-opacity duration-500 group-hover:opacity-50">
+                    <span className="rounded-full border border-white/30 bg-black/10 px-2 py-1 text-[8px] uppercase tracking-widest text-white backdrop-blur-md">
                       {photo.style.label}
                     </span>
                   </div>
                 )}
-              </motion.button>
+              </button>
             ))}
           </div>
         )}
@@ -709,7 +787,7 @@ function AlbumPage({ album, photos, status, error, onOpen, footerCta }) {
             <div className="mt-10">
               <a
                 href={footerCta.href}
-                className="rounded-full border border-charcoal/15 px-8 py-3 text-[11px] uppercase tracking-[0.28em] transition hover:bg-white/60"
+                className="rounded-full border border-charcoal/10 bg-white/60 px-8 py-3 text-[11px] uppercase tracking-[0.28em] shadow-[0_12px_32px_rgba(26,26,26,0.05)] transition hover:-translate-y-0.5 hover:bg-white/85"
               >
                 {footerCta.label}
               </a>
@@ -883,7 +961,7 @@ function ContactPage() {
               </div>
               <a
                 href={mailtoHref}
-                className="rounded-full bg-charcoal px-6 py-3 text-center text-[11px] uppercase tracking-[0.28em] text-parchment transition hover:bg-charcoal/85"
+                className="rounded-full bg-charcoal px-6 py-3 text-center text-[11px] uppercase tracking-[0.28em] text-parchment shadow-[0_14px_38px_rgba(26,26,26,0.16)] transition hover:-translate-y-0.5 hover:bg-charcoal/92"
               >
                 Send Inquiry
               </a>
