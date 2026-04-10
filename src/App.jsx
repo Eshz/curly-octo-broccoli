@@ -40,6 +40,15 @@ const ALBUMS = [
     eventDate: "Editorial Album",
     quote: "An album built around easy conversation, children at play, and sunlight through leaves.",
     location: "The Park"
+  },
+  {
+    slug: "shared-moments",
+    title: "Shared Moments",
+    subtitle: "A New Google Photos Collection",
+    label: "New Album",
+    eventDate: "Editorial Album",
+    quote: "A fresh set of candid frames and park-day memories, added directly from Google Photos.",
+    location: "The Park"
   }
 ];
 

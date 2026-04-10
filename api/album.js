@@ -38,6 +38,16 @@ const ALBUMS = {
     quote: "An album built around easy conversation, children at play, and sunlight through leaves.",
     location: "The Park",
     albumUrl: "https://photos.app.goo.gl/Bw8PhnYcR1zskVLNA?_imcp=1"
+  },
+  "shared-moments": {
+    slug: "shared-moments",
+    title: "Shared Moments",
+    subtitle: "A New Google Photos Collection",
+    label: "New Album",
+    eventDate: "Editorial Album",
+    quote: "A fresh set of candid frames and park-day memories, added directly from Google Photos.",
+    location: "The Park",
+    albumUrl: "https://photos.app.goo.gl/qw933CoL64iDriaR8?_imcp=1"
   }
 };
 
