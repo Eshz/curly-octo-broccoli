@@ -43,7 +43,7 @@ const ALBUMS = [
   },
   {
     slug: "shared-moments",
-    title: "Shared Moments",
+    title: "In between sirens, flying to Greece",
     subtitle: "A New Google Photos Collection",
     label: "New Album",
     eventDate: "Editorial Album",
