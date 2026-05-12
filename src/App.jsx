@@ -133,6 +133,23 @@ function navigate(path) {
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
+async function readApiJson(res) {
+  const text = await res.text();
+  let data;
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(`Server returned ${res.status} ${res.statusText || "non-JSON response"}. Check that the API route is deployed.`);
+  }
+
+  if (!res.ok || data.error) {
+    throw new Error(data.details || data.error || `Request failed with ${res.status}`);
+  }
+
+  return data;
+}
+
 // ─────────────────────────────────────────────────────────────
 // Hooks
 // ─────────────────────────────────────────────────────────────
@@ -247,8 +264,7 @@ function AlbumPage() {
     async function load() {
       try {
         const res = await fetch(`/api/album?slug=${encodeURIComponent(slug)}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.details || data.error || "Failed to load album");
+        const data = await readApiJson(res);
         setAlbum(data.album);
         setPhotos(
           data.photos.map((url, i) => ({
@@ -431,7 +447,7 @@ function AdminAlbumForm({ initial, onSave, onCancel, busy, error }) {
     setFetchingMeta(true);
     try {
       const res = await fetch(`/api/album-meta?url=${encodeURIComponent(form.albumUrl)}`);
-      const data = await res.json();
+      const data = await readApiJson(res);
       setForm((c) => ({
         ...c,
         title: data.title && !c.title.trim() ? data.title : c.title,
@@ -509,8 +525,7 @@ function AdminPage() {
     setLoadError("");
     try {
       const res = await fetch("/api/albums");
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      const data = await readApiJson(res);
       setAlbums(Array.isArray(data) ? data : []);
     } catch (err) {
       setLoadError(err.message);
@@ -547,8 +562,7 @@ function AdminPage() {
       } catch {
         throw new Error("Could not reach the server. Make sure it is running (npm run dev).");
       }
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      await readApiJson(res);
       await loadAlbums();
       setMode(null);
     } catch (err) {
@@ -571,8 +585,7 @@ function AdminPage() {
       } catch {
         throw new Error("Could not reach the server. Make sure it is running (npm run dev).");
       }
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      await readApiJson(res);
       setAlbums((prev) => prev.filter((a) => a.slug !== album.slug));
     } catch (err) {
       setActionError(err.message);

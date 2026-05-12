@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import { Redis } from "@upstash/redis";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,19 +11,28 @@ const ALBUMS_FILE = path.join(__dirname, "data", "albums.json");
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "1234";
 const PORT = process.env.PORT || 3001;
 
+const redis = process.env.UPSTASH_REDIS_REST_URL
+  ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
+  : null;
+
 // ─────────────────────────────────────────────────────────────
-// JSON file helpers
+// Storage helpers (Redis in production, JSON file locally)
 // ─────────────────────────────────────────────────────────────
-function readAlbums() {
+async function readAlbums() {
   try {
+    if (redis) return (await redis.get("albums")) ?? [];
     return JSON.parse(fs.readFileSync(ALBUMS_FILE, "utf8"));
   } catch {
     return [];
   }
 }
 
-function writeAlbums(albums) {
-  fs.writeFileSync(ALBUMS_FILE, JSON.stringify(albums, null, 2));
+async function writeAlbums(albums) {
+  if (redis) {
+    await redis.set("albums", albums);
+  } else {
+    fs.writeFileSync(ALBUMS_FILE, JSON.stringify(albums, null, 2));
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -197,8 +207,8 @@ app.get("/api/album-meta", async (req, res) => {
 });
 
 // Public: list all albums
-app.get("/api/albums", (_req, res) => {
-  res.json(readAlbums());
+app.get("/api/albums", async (_req, res) => {
+  res.json(await readAlbums());
 });
 
 // Public: load a single album with photos
@@ -221,7 +231,7 @@ app.get("/api/album", async (req, res) => {
         albumUrl: normalizeAlbumUrl(rawUrl),
       };
     } else {
-      album = readAlbums().find((a) => a.slug === slug);
+      album = (await readAlbums()).find((a) => a.slug === slug);
       if (!album) {
         res.status(404).json({ error: "Album not found." });
         return;
@@ -245,9 +255,9 @@ app.get("/api/album", async (req, res) => {
 });
 
 // Admin: add album
-app.post("/api/admin/album", requireAdmin, (req, res) => {
+app.post("/api/admin/album", requireAdmin, async (req, res) => {
   try {
-    const albums = readAlbums();
+    const albums = await readAlbums();
     const album = req.body;
     if (!album.slug || !album.title) {
       res.status(400).json({ error: "slug and title are required." });
@@ -258,7 +268,7 @@ app.post("/api/admin/album", requireAdmin, (req, res) => {
       return;
     }
     albums.push(album);
-    writeAlbums(albums);
+    await writeAlbums(albums);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -266,16 +276,16 @@ app.post("/api/admin/album", requireAdmin, (req, res) => {
 });
 
 // Admin: update album
-app.put("/api/admin/album/:slug", requireAdmin, (req, res) => {
+app.put("/api/admin/album/:slug", requireAdmin, async (req, res) => {
   try {
-    const albums = readAlbums();
+    const albums = await readAlbums();
     const index = albums.findIndex((a) => a.slug === req.params.slug);
     if (index === -1) {
       res.status(404).json({ error: "Album not found." });
       return;
     }
     albums[index] = { ...albums[index], ...req.body, slug: req.params.slug };
-    writeAlbums(albums);
+    await writeAlbums(albums);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -283,15 +293,15 @@ app.put("/api/admin/album/:slug", requireAdmin, (req, res) => {
 });
 
 // Admin: delete album
-app.delete("/api/admin/album/:slug", requireAdmin, (req, res) => {
+app.delete("/api/admin/album/:slug", requireAdmin, async (req, res) => {
   try {
-    const albums = readAlbums();
+    const albums = await readAlbums();
     const filtered = albums.filter((a) => a.slug !== req.params.slug);
     if (filtered.length === albums.length) {
       res.status(404).json({ error: "Album not found." });
       return;
     }
-    writeAlbums(filtered);
+    await writeAlbums(filtered);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
