@@ -1,4 +1,4 @@
-import { readAlbums, requireAdmin, writeAlbums } from "../../lib/albums.js";
+import { readAlbums, requireAdmin, writeAlbums } from "../../../lib/albums.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {

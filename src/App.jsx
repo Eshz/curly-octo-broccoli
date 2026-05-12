@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
 const APP_NAME = "Real Moments";
-const ADMIN_PASSWORD = "1234";
 
 // ─────────────────────────────────────────────────────────────
 // Style patterns for the masonry grid
@@ -505,9 +504,11 @@ function AdminAlbumForm({ initial, onSave, onCancel, busy, error }) {
 // Admin Page (serves as the homepage at /)
 // ─────────────────────────────────────────────────────────────
 function AdminPage() {
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem("adminAuth") === "1");
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [authed, setAuthed] = useState(false);
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [loginBusy, setLoginBusy] = useState(false);
 
   const [albums, setAlbums] = useState([]);
   const [loadingAlbums, setLoadingAlbums] = useState(false);
@@ -517,6 +518,22 @@ function AdminPage() {
   const [formBusy, setFormBusy] = useState(false);
   const [formError, setFormError] = useState("");
   const [actionError, setActionError] = useState("");
+
+  useEffect(() => {
+    async function checkSession() {
+      try {
+        const res = await fetch("/api/admin/session");
+        const data = await readApiJson(res);
+        setAuthed(Boolean(data.authenticated));
+      } catch {
+        setAuthed(false);
+      } finally {
+        setCheckingAuth(false);
+      }
+    }
+
+    checkSession();
+  }, []);
 
   useEffect(() => { if (authed) loadAlbums(); }, [authed]);
 
@@ -534,13 +551,34 @@ function AdminPage() {
     }
   }
 
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e.preventDefault();
-    if (password === ADMIN_PASSWORD) {
-      sessionStorage.setItem("adminAuth", "1");
+    setLoginBusy(true);
+    setLoginError("");
+
+    try {
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      await readApiJson(res);
+      setPassword("");
       setAuthed(true);
-    } else {
-      setLoginError("Incorrect password.");
+    } catch (err) {
+      setLoginError(err.message);
+    } finally {
+      setLoginBusy(false);
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await fetch("/api/admin/logout", { method: "POST" });
+    } finally {
+      setAuthed(false);
+      setAlbums([]);
+      setMode(null);
     }
   }
 
@@ -556,7 +594,7 @@ function AdminPage() {
         res = await fetch(
           isEdit ? `/api/admin/album/${slug}` : "/api/admin/album",
           { method: isEdit ? "PUT" : "POST",
-            headers: { "Content-Type": "application/json", "X-Admin-Password": ADMIN_PASSWORD },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(album) }
         );
       } catch {
@@ -566,6 +604,7 @@ function AdminPage() {
       await loadAlbums();
       setMode(null);
     } catch (err) {
+      if (err.message === "Unauthorized") setAuthed(false);
       setFormError(err.message);
     } finally {
       setFormBusy(false);
@@ -580,7 +619,6 @@ function AdminPage() {
       try {
         res = await fetch(`/api/admin/album/${album.slug}`, {
           method: "DELETE",
-          headers: { "X-Admin-Password": ADMIN_PASSWORD },
         });
       } catch {
         throw new Error("Could not reach the server. Make sure it is running (npm run dev).");
@@ -588,8 +626,17 @@ function AdminPage() {
       await readApiJson(res);
       setAlbums((prev) => prev.filter((a) => a.slug !== album.slug));
     } catch (err) {
+      if (err.message === "Unauthorized") setAuthed(false);
       setActionError(err.message);
     }
+  }
+
+  if (checkingAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-parchment text-charcoal">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-charcoal/15 border-t-charcoal" />
+      </div>
+    );
   }
 
   // ── Login screen ───────────────────────────────────────────
@@ -614,8 +661,9 @@ function AdminPage() {
             </label>
             {loginError && <p className="text-sm text-red-600">{loginError}</p>}
             <button type="submit"
-              className="w-full bg-charcoal py-3 text-[11px] uppercase tracking-[0.28em] text-parchment shadow-[0_14px_38px_rgba(26,26,26,0.16)] transition hover:bg-charcoal/90">
-              Sign In
+              disabled={loginBusy || !password.trim()}
+              className="w-full bg-charcoal py-3 text-[11px] uppercase tracking-[0.28em] text-parchment shadow-[0_14px_38px_rgba(26,26,26,0.16)] transition hover:bg-charcoal/90 disabled:opacity-40">
+              {loginBusy ? "Signing In..." : "Sign In"}
             </button>
           </form>
         </motion.div>
@@ -634,6 +682,9 @@ function AdminPage() {
             <button type="button"
               className="border border-charcoal/10 bg-white/60 px-4 py-2 text-[10px] uppercase tracking-[0.22em] transition hover:bg-white/85"
               onClick={loadAlbums}>Refresh</button>
+            <button type="button"
+              className="border border-charcoal/10 bg-white/60 px-4 py-2 text-[10px] uppercase tracking-[0.22em] transition hover:bg-white/85"
+              onClick={handleLogout}>Sign Out</button>
             <button type="button"
               className="flex items-center gap-2 bg-charcoal px-4 py-2 text-[10px] uppercase tracking-[0.22em] text-parchment transition hover:bg-charcoal/90"
               onClick={() => { setMode("add"); setFormError(""); }}>

@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { Redis } from "@upstash/redis";
 
@@ -8,10 +9,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const ALBUMS_FILE = path.join(__dirname, "data", "albums.json");
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "1234";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || (process.env.NODE_ENV === "production" ? "" : "1234");
+const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || ADMIN_PASSWORD;
+const ADMIN_SESSION_COOKIE = "real_moments_admin";
+const ADMIN_SESSION_TTL_SECONDS = 60 * 60 * 8;
 const PORT = process.env.PORT || 3001;
 
-const redis = process.env.UPSTASH_REDIS_REST_URL
+const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
   ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
   : null;
 
@@ -20,7 +24,11 @@ const redis = process.env.UPSTASH_REDIS_REST_URL
 // ─────────────────────────────────────────────────────────────
 async function readAlbums() {
   try {
-    if (redis) return (await redis.get("albums")) ?? [];
+    if (redis) {
+      const albums = await redis.get("albums");
+      if (Array.isArray(albums)) return albums;
+    }
+
     return JSON.parse(fs.readFileSync(ALBUMS_FILE, "utf8"));
   } catch {
     return [];
@@ -30,9 +38,14 @@ async function readAlbums() {
 async function writeAlbums(albums) {
   if (redis) {
     await redis.set("albums", albums);
-  } else {
-    fs.writeFileSync(ALBUMS_FILE, JSON.stringify(albums, null, 2));
+    return;
   }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Persistent album storage is not configured. Add UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.");
+  }
+
+  fs.writeFileSync(ALBUMS_FILE, JSON.stringify(albums, null, 2));
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -44,11 +57,52 @@ const distPath = path.join(__dirname, "dist");
 app.use(express.json());
 
 // ─────────────────────────────────────────────────────────────
-// Admin auth middleware
+// Admin auth helpers
 // ─────────────────────────────────────────────────────────────
+function safeEqual(a, b) {
+  const aBuffer = Buffer.from(a);
+  const bBuffer = Buffer.from(b);
+  return aBuffer.length === bBuffer.length && crypto.timingSafeEqual(aBuffer, bBuffer);
+}
+
+function signSession(payload) {
+  return crypto.createHmac("sha256", ADMIN_SESSION_SECRET).update(payload).digest("base64url");
+}
+
+function getCookie(req, name) {
+  const cookieHeader = req.headers.cookie || "";
+  const cookies = cookieHeader.split(";").map((cookie) => cookie.trim());
+  const match = cookies.find((cookie) => cookie.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.slice(name.length + 1)) : "";
+}
+
+function createAdminSession() {
+  const expiresAt = Math.floor(Date.now() / 1000) + ADMIN_SESSION_TTL_SECONDS;
+  const payload = Buffer.from(JSON.stringify({ role: "admin", expiresAt })).toString("base64url");
+  return `${payload}.${signSession(payload)}`;
+}
+
+function verifyAdminSession(token) {
+  if (!token || !ADMIN_SESSION_SECRET) return false;
+
+  const [payload, signature] = token.split(".");
+  if (!payload || !signature || !safeEqual(signature, signSession(payload))) return false;
+
+  try {
+    const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    return session.role === "admin" && Number(session.expiresAt) > Math.floor(Date.now() / 1000);
+  } catch {
+    return false;
+  }
+}
+
+function adminCookieOptions(maxAge) {
+  const secure = process.env.NODE_ENV === "production" ? " Secure;" : "";
+  return `Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge};${secure}`;
+}
+
 function requireAdmin(req, res, next) {
-  const password = req.headers["x-admin-password"] || (req.body && req.body.password);
-  if (password !== ADMIN_PASSWORD) {
+  if (!verifyAdminSession(getCookie(req, ADMIN_SESSION_COOKIE))) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
@@ -94,6 +148,34 @@ async function fetchAlbumData(albumUrl) {
 // ─────────────────────────────────────────────────────────────
 // API Routes
 // ─────────────────────────────────────────────────────────────
+
+app.post("/api/admin/login", (req, res) => {
+  const password = req.body?.password || "";
+  if (!ADMIN_PASSWORD) {
+    res.status(500).json({ error: "ADMIN_PASSWORD is not configured." });
+    return;
+  }
+
+  if (!safeEqual(password, ADMIN_PASSWORD)) {
+    res.status(401).json({ error: "Incorrect password." });
+    return;
+  }
+
+  res.setHeader(
+    "Set-Cookie",
+    `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(createAdminSession())}; ${adminCookieOptions(ADMIN_SESSION_TTL_SECONDS)}`
+  );
+  res.json({ success: true });
+});
+
+app.post("/api/admin/logout", (_req, res) => {
+  res.setHeader("Set-Cookie", `${ADMIN_SESSION_COOKIE}=; ${adminCookieOptions(0)}`);
+  res.json({ success: true });
+});
+
+app.get("/api/admin/session", (req, res) => {
+  res.json({ authenticated: verifyAdminSession(getCookie(req, ADMIN_SESSION_COOKIE)) });
+});
 
 const STOP_WORDS = new Set([
   "a","an","the","and","or","but","in","on","at","to","for","of","with","by",
