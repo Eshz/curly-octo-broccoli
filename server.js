@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const ALBUMS_FILE = path.join(__dirname, "data", "albums.json");
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || (process.env.NODE_ENV === "production" ? "" : "1234");
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "4523";
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || ADMIN_PASSWORD;
 const ADMIN_SESSION_COOKIE = "real_moments_admin";
 const ADMIN_SESSION_TTL_SECONDS = 60 * 60 * 8;
