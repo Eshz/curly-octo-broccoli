@@ -43,10 +43,6 @@ async function writeAlbums(albums) {
     return;
   }
 
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("Persistent album storage is not configured. Connect Vercel KV/Redis or add UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.");
-  }
-
   fs.writeFileSync(ALBUMS_FILE, JSON.stringify(albums, null, 2));
 }
 

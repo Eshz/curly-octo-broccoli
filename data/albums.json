@@ -1,15 +1,5 @@
 [
   {
-    "slug": "trip-to-estonia",
-    "title": "Trip to Estonia",
-    "subtitle": "",
-    "label": "",
-    "eventDate": "",
-    "quote": "",
-    "location": "",
-    "albumUrl": "https://photos.app.goo.gl/GwH2tY38ChJGUqCR8"
-  },
-  {
     "slug": "naomi-is-two",
     "title": "Naomi is two",
     "subtitle": "",
@@ -18,5 +8,15 @@
     "quote": "",
     "location": "",
     "albumUrl": "https://photos.app.goo.gl/USFhTJJsH99V5CRLA"
+  },
+  {
+    "slug": "the-most-estonian-estonia",
+    "title": "The most estonian estonia",
+    "subtitle": "",
+    "label": "most estonian",
+    "eventDate": "2014",
+    "quote": "",
+    "location": "Shared album",
+    "albumUrl": "https://photos.app.goo.gl/GwH2tY38ChJGUqCR8"
   }
 ]
