@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
+import { Readable } from "stream";
 import { Redis } from "@upstash/redis";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -138,7 +139,24 @@ async function fetchAlbumData(albumUrl) {
   const matches =
     html.match(/https:\\\/\\\/lh3\.googleusercontent\.com\\\/pw\\\/[^"\\]+|https:\/\/lh3\.googleusercontent\.com\/pw\/[^"'\\\s)]+/g) ?? [];
 
-  const photos = [...new Set(matches.map((m) => m.replaceAll("\\/", "/")).map(normalizePhotoUrl))];
+  const allUrls = matches.map((m) => m.replaceAll("\\/", "/"));
+
+  // URLs containing =m<digits> are video format URLs — collect their base paths
+  const videoBasePaths = new Set(
+    allUrls.filter((u) => /=m\d+/.test(u)).map((u) => u.replace(/=.*$/, ""))
+  );
+
+  const seen = new Set();
+  const photos = [];
+  for (const url of allUrls) {
+    if (/=m\d+/.test(url)) continue; // skip raw video-format URLs
+    const normalized = normalizePhotoUrl(url);
+    const base = normalized.replace(/=.*$/, "");
+    if (seen.has(base)) continue;
+    seen.add(base);
+    photos.push({ url: normalized, isVideo: videoBasePaths.has(base) });
+  }
+
   if (photos.length === 0) throw new Error("No photos found in the shared album page.");
   return { photos, html };
 }
@@ -191,6 +209,7 @@ function generateLabel(title) {
 
 function cleanTitle(raw) {
   return raw
+    .replace(/\s*·.*$/, "")
     .replace(/\s*[-–—]\s*Google Photos\s*$/i, "")
     .replace(/\s*[-–—]\s*Album\s*$/i, "")
     .replace(/\s*\(\d{4}\)\s*$/, "")
@@ -234,9 +253,26 @@ function extractEventDate(html) {
       return `${monthName} ${year}`;
     }
   }
-  // Pattern 3: og:description or title containing a year
-  const yearMatch = html.match(/content="[^"]*?(20\d{2})[^"]*"/);
-  if (yearMatch) return yearMatch[1];
+  // Pattern 3: Unix ms timestamp (13 digits, e.g. 1778744864000)
+  const tsMs = html.match(/\b(1[5-9]\d{11})\b/);
+  if (tsMs) {
+    const date = new Date(parseInt(tsMs[1], 10));
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    if (year >= 2000 && year <= 2100 && month >= 1 && month <= 12) {
+      return `${date.toLocaleString("en", { month: "long" })} ${year}`;
+    }
+  }
+  // Pattern 4: Unix seconds timestamp (10 digits, e.g. 1778760317)
+  const tsSec = html.match(/\b(1[5-9]\d{8})\b/);
+  if (tsSec) {
+    const date = new Date(parseInt(tsSec[1], 10) * 1000);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    if (year >= 2000 && year <= 2100 && month >= 1 && month <= 12) {
+      return `${date.toLocaleString("en", { month: "long" })} ${year}`;
+    }
+  }
   return "";
 }
 
@@ -286,6 +322,36 @@ app.get("/api/album-meta", async (req, res) => {
   }
 });
 
+// Public: proxy video from Google Photos CDN (bypasses browser CORS, supports range requests)
+app.get("/api/video-proxy", async (req, res) => {
+  const rawUrl = typeof req.query.url === "string" ? req.query.url : "";
+  if (!rawUrl || !rawUrl.includes("lh3.googleusercontent.com")) {
+    res.status(400).end("Invalid URL");
+    return;
+  }
+  const videoUrl = rawUrl.replace(/=[^=]+$/, "=m37");
+  const upstreamHeaders = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Referer": "https://photos.google.com/",
+    "Accept": "video/*,*/*",
+  };
+  if (req.headers.range) upstreamHeaders["Range"] = req.headers.range;
+
+  try {
+    const upstream = await fetch(videoUrl, { headers: upstreamHeaders });
+    res.status(upstream.status);
+    const forward = ["content-type", "content-length", "content-range", "accept-ranges"];
+    for (const h of forward) {
+      const v = upstream.headers.get(h);
+      if (v) res.setHeader(h, v);
+    }
+    if (!upstream.headers.get("accept-ranges")) res.setHeader("Accept-Ranges", "bytes");
+    Readable.fromWeb(upstream.body).pipe(res);
+  } catch (err) {
+    res.status(500).end(err.message);
+  }
+});
+
 // Public: list all albums
 app.get("/api/albums", async (_req, res) => {
   res.json(await readAlbums());
@@ -328,7 +394,7 @@ app.get("/api/album", async (req, res) => {
     const eventDate = album.eventDate || extractEventDate(html);
     const location = album.location || extractLocation(html);
 
-    res.json({ album: { ...album, label, eventDate, location, cover: photos[0], photoCount: photos.length }, photos });
+    res.json({ album: { ...album, label, eventDate, location, cover: photos[0]?.url, photoCount: photos.length }, photos });
   } catch (err) {
     res.status(500).json({ error: "Unable to load album right now.", details: err.message });
   }

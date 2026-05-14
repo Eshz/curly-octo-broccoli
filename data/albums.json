@@ -1,22 +1,22 @@
 [
   {
-    "slug": "naomi-is-two",
-    "title": "Naomi is two",
+    "slug": "hiking-on-a-trail",
+    "title": "Hiking on a trail",
     "subtitle": "",
-    "label": "",
+    "label": "Hiking trail",
     "eventDate": "",
     "quote": "",
-    "location": "",
-    "albumUrl": "https://photos.app.goo.gl/USFhTJJsH99V5CRLA"
+    "location": "Shared album",
+    "albumUrl": "https://photos.app.goo.gl/njjRX9Xy4JP7Frwm7"
   },
   {
-    "slug": "the-most-estonian-estonia",
-    "title": "The most estonian estonia",
+    "slug": "hiking-on-a-trail-2",
+    "title": "Hiking on a trail 2",
     "subtitle": "",
-    "label": "most estonian",
-    "eventDate": "2014",
+    "label": "Hiking trail",
+    "eventDate": "",
     "quote": "",
     "location": "Shared album",
-    "albumUrl": "https://photos.app.goo.gl/GwH2tY38ChJGUqCR8"
+    "albumUrl": "https://photos.app.goo.gl/njjRX9Xy4JP7Frwm7"
   }
 ]

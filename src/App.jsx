@@ -85,10 +85,18 @@ function CalendarIcon() {
   );
 }
 
-function MapPinIcon() {
+function CameraIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" /><circle cx="12" cy="10" r="3" />
+      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" />
+    </svg>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+      <path d="M8 5.14v14l11-7-11-7z" />
     </svg>
   );
 }
@@ -97,6 +105,22 @@ function ExternalLinkIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
       <path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-[18px] w-[18px]">
+      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-[18px] w-[18px]">
+      <polyline points="20 6 9 17 4 12" />
     </svg>
   );
 }
@@ -172,7 +196,7 @@ function useInView(options = {}) {
 // ─────────────────────────────────────────────────────────────
 // RevealImage
 // ─────────────────────────────────────────────────────────────
-function RevealImage({ src, alt, wrapperClassName = "", className = "" }) {
+function RevealImage({ src, alt, wrapperClassName = "", className = "", onImageLoad }) {
   const [ref, isVisible] = useInView();
   const [loaded, setLoaded] = useState(false);
   useEffect(() => { setLoaded(false); }, [src]);
@@ -181,7 +205,7 @@ function RevealImage({ src, alt, wrapperClassName = "", className = "" }) {
     <div ref={ref} className={["relative overflow-hidden", wrapperClassName].join(" ")}>
       {isVisible && (
         <img src={src} alt={alt} loading="lazy" decoding="async" referrerPolicy="no-referrer"
-          onLoad={() => setLoaded(true)}
+          onLoad={(e) => { setLoaded(true); onImageLoad?.(e.currentTarget); }}
           className={["w-full h-full object-cover transition-[opacity,transform] duration-700 ease-out",
             ready ? "scale-100 opacity-100" : "scale-95 opacity-0", className].join(" ")}
         />
@@ -195,7 +219,10 @@ function RevealImage({ src, alt, wrapperClassName = "", className = "" }) {
 // ─────────────────────────────────────────────────────────────
 function Lightbox({ album, photos, currentIndex, onClose, onNavigate }) {
   const [touchStart, setTouchStart] = useState(null);
+  const [videoMode, setVideoMode] = useState(false);
   const photo = photos[currentIndex];
+
+  useEffect(() => { setVideoMode(false); }, [currentIndex]);
 
   useEffect(() => {
     function onKey(e) {
@@ -209,6 +236,8 @@ function Lightbox({ album, photos, currentIndex, onClose, onNavigate }) {
 
   if (!photo) return null;
 
+  const videoSrc = `/api/video-proxy?url=${encodeURIComponent(photo.url)}`;
+
   return (
     <motion.div
       className="fixed inset-0 z-[100] flex flex-col bg-parchment text-charcoal"
@@ -220,20 +249,58 @@ function Lightbox({ album, photos, currentIndex, onClose, onNavigate }) {
         <button className="p-2 transition-opacity hover:opacity-50" onClick={onClose}><CloseIcon /></button>
       </div>
       <div className="relative flex flex-1 items-center justify-center overflow-hidden px-5 py-4 md:p-12">
-        <motion.img
-          key={photo.url}
-          initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.3, ease: "easeOut" }}
-          onTouchStart={(e) => setTouchStart(e.changedTouches[0].clientX)}
-          onTouchEnd={(e) => {
-            if (touchStart === null) return;
-            const delta = e.changedTouches[0].clientX - touchStart;
-            if (Math.abs(delta) > 50) onNavigate(delta > 0 ? -1 : 1);
-            setTouchStart(null);
-          }}
-          className={`max-h-full max-w-full object-contain shadow-2xl ${photo.style.filter}`.trim()}
-          src={photo.url} alt={photo.alt} referrerPolicy="no-referrer"
-        />
+        {videoMode ? (
+          <motion.video
+            key={`${photo.url}-video`}
+            initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            src={videoSrc}
+            controls autoPlay
+            className="max-h-full max-w-full object-contain shadow-2xl"
+          />
+        ) : photo.isVideo ? (
+          <button
+            type="button"
+            className="group relative flex max-h-full max-w-full cursor-pointer items-center justify-center"
+            onClick={() => setVideoMode(true)}
+            onTouchStart={(e) => setTouchStart(e.changedTouches[0].clientX)}
+            onTouchEnd={(e) => {
+              if (touchStart === null) return;
+              const delta = e.changedTouches[0].clientX - touchStart;
+              if (Math.abs(delta) > 50) onNavigate(delta > 0 ? -1 : 1);
+              else setVideoMode(true);
+              setTouchStart(null);
+            }}
+          >
+            <motion.img
+              key={photo.url}
+              initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.3, ease: "easeOut" }}
+              className={`max-h-full max-w-full object-contain shadow-2xl ${photo.style.filter}`.trim()}
+              src={photo.url} alt={photo.alt} referrerPolicy="no-referrer"
+            />
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/50 bg-white/20 text-white backdrop-blur-md">
+                <PlayIcon />
+              </div>
+            </div>
+          </button>
+        ) : (
+          <motion.img
+            key={photo.url}
+            initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.3, ease: "easeOut" }}
+            onTouchStart={(e) => setTouchStart(e.changedTouches[0].clientX)}
+            onTouchEnd={(e) => {
+              if (touchStart === null) return;
+              const delta = e.changedTouches[0].clientX - touchStart;
+              if (Math.abs(delta) > 50) onNavigate(delta > 0 ? -1 : 1);
+              setTouchStart(null);
+            }}
+            className={`max-h-full max-w-full object-contain shadow-2xl ${photo.style.filter}`.trim()}
+            src={photo.url} alt={photo.alt} referrerPolicy="no-referrer"
+          />
+        )}
         <button className="group absolute left-1 top-1/2 rounded-full p-3 transition-all hover:bg-white/10 md:left-10 md:p-4" onClick={() => onNavigate(-1)}>
           <ChevronLeftIcon />
         </button>
@@ -258,6 +325,19 @@ function AlbumPage() {
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
   const [activeIndex, setActiveIndex] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  async function handleShare() {
+    const url = window.location.href;
+    const title = album?.title || "Album";
+    if (navigator.share) {
+      try { await navigator.share({ title, url }); } catch { /* cancelled */ }
+    } else {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -266,8 +346,9 @@ function AlbumPage() {
         const data = await readApiJson(res);
         setAlbum(data.album);
         setPhotos(
-          data.photos.map((url, i) => ({
-            url,
+          data.photos.map((photo, i) => ({
+            url: photo.url,
+            isVideo: photo.isVideo || false,
             alt: `${data.album.title} — ${i + 1}`,
             style: stylePatterns[i % stylePatterns.length],
           }))
@@ -287,9 +368,29 @@ function AlbumPage() {
 
   return (
     <div className="min-h-screen bg-parchment text-charcoal selection:bg-charcoal selection:text-white">
-      {/* Minimal header — just the brand */}
-      <nav className="fixed left-0 top-0 z-50 flex w-full items-center px-5 py-6 md:px-12 md:py-8">
+      {/* Minimal header — brand + share */}
+      <nav className="fixed left-0 top-0 z-50 flex w-full items-center justify-between px-5 py-6 md:px-12 md:py-8">
         <Logo />
+        {status === "ready" && album && (
+          <button
+            type="button"
+            onClick={handleShare}
+            className="flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-charcoal/50 transition-all hover:text-charcoal"
+            title="Share album"
+          >
+            {copied ? (
+              <>
+                <CheckIcon />
+                <span className="hidden sm:inline">Copied</span>
+              </>
+            ) : (
+              <>
+                <ShareIcon />
+                <span className="hidden sm:inline">Share</span>
+              </>
+            )}
+          </button>
+        )}
       </nav>
 
       {/* Hero */}
@@ -299,10 +400,10 @@ function AlbumPage() {
         )}
         {(status === "ready" || status === "error") && album && (
           <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
-            {(album.subtitle || album.label) && (
-              <p className="mb-6 text-[11px] uppercase tracking-[0.4em] opacity-60">{album.subtitle || album.label}</p>
-            )}
-            <h1 className="font-serif text-6xl font-light leading-tight md:text-8xl lg:text-9xl">
+            <p className="mb-6 text-[11px] uppercase tracking-[0.4em] opacity-60">
+              {album.subtitle || "Here are your moments"}
+            </p>
+            <h1 className="font-serif text-4xl font-light leading-tight md:text-6xl lg:text-7xl">
               {album.title.split(" ").map((word, i) => (
                 <span key={i} className={i % 2 === 1 ? "italic" : ""}>{i > 0 ? " " : ""}{word}</span>
               ))}
@@ -314,10 +415,10 @@ function AlbumPage() {
                   <span className="text-xs uppercase tracking-wider">{album.eventDate}</span>
                 </div>
               )}
-              {album.location && (
+              {album.photoCount > 0 && (
                 <div className="flex items-center space-x-2 opacity-70">
-                  <MapPinIcon />
-                  <span className="text-xs uppercase tracking-wider">{album.location}</span>
+                  <CameraIcon />
+                  <span className="text-xs uppercase tracking-wider">{album.photoCount} photos</span>
                 </div>
               )}
             </div>
@@ -339,7 +440,7 @@ function AlbumPage() {
               <button
                 key={`${photo.url}-${index}`}
                 type="button"
-                className={["group relative cursor-pointer overflow-hidden bg-[#e5e2dd]",
+                className={["group relative cursor-pointer overflow-hidden bg-parchment",
                   photo.style.cols, photo.style.rows, photo.style.aspect].join(" ")}
                 onClick={() => setActiveIndex(index)}
               >
@@ -482,6 +583,10 @@ function AdminAlbumForm({ initial, onSave, onCancel, busy, error }) {
         <label className="block">
           <span className="text-[10px] uppercase tracking-[0.25em] opacity-50">Website name (auto)</span>
           <input className={inp + " opacity-70"} value={form.slug} onChange={(e) => set("slug", e.target.value)} placeholder="my-trip-to-georgia" />
+        </label>
+        <label className="block">
+          <span className="text-[10px] uppercase tracking-[0.25em] opacity-50">Date</span>
+          <input className={inp} value={form.eventDate} onChange={(e) => set("eventDate", e.target.value)} placeholder="May 2026" />
         </label>
       </div>
       {error && <p className="bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
