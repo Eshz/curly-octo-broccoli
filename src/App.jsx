@@ -584,10 +584,6 @@ function AdminAlbumForm({ initial, onSave, onCancel, busy, error }) {
           <span className="text-[10px] uppercase tracking-[0.25em] opacity-50">Website name (auto)</span>
           <input className={inp + " opacity-70"} value={form.slug} onChange={(e) => set("slug", e.target.value)} placeholder="my-trip-to-georgia" />
         </label>
-        <label className="block">
-          <span className="text-[10px] uppercase tracking-[0.25em] opacity-50">Date</span>
-          <input className={inp} value={form.eventDate} onChange={(e) => set("eventDate", e.target.value)} placeholder="May 2026" />
-        </label>
       </div>
       {error && <p className="bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
       <div className="flex justify-end gap-3 pt-2">

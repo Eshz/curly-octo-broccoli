@@ -44,7 +44,14 @@ async function writeAlbums(albums) {
     return;
   }
 
-  fs.writeFileSync(ALBUMS_FILE, JSON.stringify(albums, null, 2));
+  try {
+    fs.writeFileSync(ALBUMS_FILE, JSON.stringify(albums, null, 2));
+  } catch (err) {
+    if (err.code === "EROFS" || err.code === "EACCES") {
+      throw new Error("Storage is read-only. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN in your environment to enable persistent storage.");
+    }
+    throw err;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
