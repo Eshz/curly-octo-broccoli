@@ -185,7 +185,7 @@ function useInView(options = {}) {
     if (!node) return;
     const observer = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) { setIsVisible(true); observer.disconnect(); } },
-      { rootMargin: "0px 0px -8% 0px", threshold: 0.15, ...options }
+      { rootMargin: "0px 0px 400px 0px", threshold: 0, ...options }
     );
     observer.observe(node);
     return () => observer.disconnect();
